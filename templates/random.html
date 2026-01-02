@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Random Match Game</title>
+</head>
+
+<body>
+    <h1>Codeforces Race Game</h1>
+
+    <div id="info">
+        <button id="joinBtn">Join Game</button>
+    </div>
+
+    <div id="game" style="display:none;">
+        <p><b>Your Player ID:</b> <span id="playerId"></span></p>
+        <p><b>Opponent ID:</b> <span id="opponentId"></span></p>
+        <p><b>Problem ID:</b> <span id="problemId"></span></p>
+        <button id="checkBtn">Check Solution</button>
+        <p id="status"></p>
+    </div>
+
+    <script>
+        let playerId = null;
+        let gameId = null;
+        let pollInterval = null;
+
+        document.getElementById("joinBtn").onclick = async () =>
+        {
+            const response = await fetch("/random", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({})
+            });
+            const data = await response.json();
+            playerId = data.player_id;
+
+            if (data.status === "waiting")
+            {
+                document.getElementById("info").innerHTML = `<p>Waiting for opponent... Your Player ID: ${playerId}</p>`;
+                // Poll server every second to see if matched
+                pollInterval = setInterval(checkMatch, 1000);
+            } else if (data.status === "matched")
+            {
+                setupGame(data);
+            }
+        };
+
+       
+
+       function setupGame (data)
+        {
+            gameId = data.game_id;
+            document.getElementById("playerId").innerText = playerId;
+            document.getElementById("opponentId").innerText = data.opponent_id;
+
+            // Display the problem
+            const problem = data.problem;
+            const problemUrl = `https://codeforces.com/contest/${problem.contestId}/problem/${problem.index}`;
+            const problemHtml = `
+        <h3>${problem.name} (Rating: ${problem.rating})</h3>
+        <p>Link: <a href="${problemUrl}" target="_blank">${problemUrl}</a></p>
+    `;
+            document.getElementById("problemId").innerHTML = problemHtml;
+
+            document.getElementById("info").style.display = "none";
+            document.getElementById("game").style.display = "block";
+
+            
+        }
+
+
+    </script>
+</body>
+
+</html>

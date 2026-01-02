@@ -1,0 +1,26 @@
+lichess but for cf 
+
+- User connection system 
+- Problem showing system 
+- Problem submission system 
+- Rating system 
+
+
+
+Basic workflow in simple terms 
+
+A user joins the platform 
+    - Connect via CF / Gmail 
+    - Play random matches 
+    - Play against a human player of +/- same rating 
+
+Everything same except for chess we have cf problems 
+
+
+
+---
+2 players in a match 
+i see one of them has submitted first 
+i can check their submission using  https://codeforces.com/api/user.status?handle=<HANDLE>
+and then update their ratings and match is done 
+
