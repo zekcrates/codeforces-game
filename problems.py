@@ -64,5 +64,7 @@ def get_problem(ratings=[1100,1300]):
     return random.choice(filtered) if filtered else None
 
 
-problem = get_problem([1100,1300])
-print(problem)
+
+
+
+

@@ -24,3 +24,6 @@ i see one of them has submitted first
 i can check their submission using  https://codeforces.com/api/user.status?handle=<HANDLE>
 and then update their ratings and match is done 
 
+
+i dont think we can do this randomly 
+
