@@ -4,13 +4,15 @@ from cf import check_solution, get_user_rating, user_exists
 from problems import get_problem
 from flask_socketio import SocketIO, send, emit, join_room
 
+from rating import calculate_ratings
+
 
 app = Flask(__name__)
 app.secret_key = "dev-secret-key"
 socketio = SocketIO(app)
 waiting_queue = []
 active_games = {}
-
+RATING_THRESHOLD = 300
 
 @socketio.on('message')
 def handle_message(data):
@@ -31,52 +33,90 @@ def handle_join(data):
     
     rating = get_user_rating(handle)
     player_data = {'handle': handle, 'sid': request.sid, 'rating': rating}
-    if waiting_queue:
-        opponent = waiting_queue.pop(0)
-        game_id = str(uuid.uuid4())
-        problem = get_problem([rating, opponent['rating']])
 
-        active_games[game_id] = {
-            'player1': player_data,
-            'player2': opponent,
-            'problem': problem,
-            'winner': None
-        }
+    match_found = False 
 
+    for i, opponent in enumerate(waiting_queue):
+        rating_diff = abs(player_data['rating'] - opponent['rating'])
+        
+        if rating_diff <= RATING_THRESHOLD:
+            waiting_queue.pop(i)
+            match_found = True
+            
+            game_id = str(uuid.uuid4())
+            problem = get_problem([rating,opponent['rating']])
 
-        join_room(game_id)
-        join_room(game_id, sid=opponent['sid'])
-        emit('match_found', {
-            'game_id': game_id,
-            'opponent_handle': opponent['handle'],
-            'opponent_rating': opponent['rating'],
-            'my_rating': rating,
-            'problem': problem 
-        }, room=request.sid)
+            active_games[game_id] = {
+                'player1': player_data,
+                'player2': opponent,
+                'problem': problem,
+                'winner': None
+            }
 
-        emit('match_found', {
-            'game_id': game_id,
-            'opponent_handle': handle,
-            'opponent_rating': rating,
-            'my_rating': opponent['rating'],
-            'problem': problem
-        }, room=opponent['sid'])
+            join_room(game_id)
+            join_room(game_id, sid=opponent['sid'])
+
+            emit('match_found', {
+                'game_id': game_id,
+                'opponent_handle': opponent['handle'],
+                'opponent_rating': opponent['rating'],
+                'my_rating': rating,
+                'problem': problem 
+            }, room=request.sid)
+
+            emit('match_found', {
+                'game_id': game_id,
+                'opponent_handle': handle,
+                'opponent_rating': rating,
+                'my_rating': opponent['rating'],
+                'problem': problem
+            }, room=opponent['sid'])
+            
+            break
     
-    else:
+    if not match_found:
         waiting_queue.append(player_data)
-        emit('waiting', {'msg': 'Searching for opponent...'})
-
+        emit('waiting', {'msg': 'Searching for a balanced opponent...'})
 
 @socketio.on('check_solution')
 def handle_check(data):
     game_id = data.get('game_id')
-    handle = data.get('handle')
-    game= active_games.get(game_id)
+    winner_handle = data.get('handle')
+    game = active_games.get(game_id)
+
     if not game or game['winner']:
         return 
-    
-    emit('game_over', {'winner': handle}, room=game_id)
 
+    p1 = game['player1']
+    p2 = game['player2']
+
+    if winner_handle == p1['handle']:
+        winner_data, loser_data = p1, p2
+    else:
+        winner_data, loser_data = p2, p1
+
+    new_winner_rating, new_loser_rating = calculate_ratings(
+        winner_data['rating'], 1, 
+        loser_data['rating'], 0
+    )
+
+    game['winner'] = winner_handle
+
+    emit('game_over', {
+        'winner': winner_handle,
+        'new_ratings': {
+            winner_data['handle']: {
+                'old': winner_data['rating'],
+                'new': new_winner_rating,
+                'diff': new_winner_rating - winner_data['rating']
+            },
+            loser_data['handle']: {
+                'old': loser_data['rating'],
+                'new': new_loser_rating,
+                'diff': new_loser_rating - loser_data['rating']
+            }
+        }
+    }, room=game_id)
 @socketio.on('leave_queue')
 def handle_leave():
     global waiting_queue

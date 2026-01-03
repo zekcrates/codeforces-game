@@ -35,3 +35,13 @@ with other
 first we do socketio 
 then we do redis 
 then we do rating based matching 
+
+
+ok first we have to do the rating and then if we want to we will add redis 
+
+checking solutions is not possible for now 
+
+
+
+
+
