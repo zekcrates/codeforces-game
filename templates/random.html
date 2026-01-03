@@ -67,6 +67,12 @@
             border-left: 5px solid #333;
         }
 
+        .rating-text {
+            color: #777;
+            font-weight: normal;
+            font-size: 0.85em;
+        }
+
         #status-msg {
             font-weight: bold;
             margin-top: 20px;
@@ -83,7 +89,7 @@
             <input type="text" id="handle" placeholder="CF Handle">
             <br>
             <p id="error-display" style="color: red; font-size: 0.8em; min-height: 1em;"></p>
-        
+
             <button onclick="join()">Join Game</button>
         </div>
 
@@ -98,6 +104,8 @@
 
             <div class="problem-info">
                 <p><strong>Problem:</strong> <span id="prob-name"></span></p>
+                <p><strong>Rating:</strong> <span id="prob-rating"></span></p>
+
                 <a id="prob-link" href="#" target="_blank">Open on Codeforces</a>
             </div>
 
@@ -114,18 +122,19 @@
         var myHandle = null;
 
         function join ()
-            {
-                myHandle = document.getElementById('handle').value;
-                document.getElementById('error-display').innerText = "";
+        {
+            myHandle = document.getElementById('handle').value;
+            document.getElementById('error-display').innerText = "";
 
-                if (myHandle)
-                {
-                    socket.emit('join_game', { handle: myHandle });
-                } else
-                {
-                    document.getElementById('error-display').innerText = "Please enter a handle.";
-                }
+            if (myHandle)
+            {
+                socket.emit('join_game', { handle: myHandle });
+            } else
+            {
+                document.getElementById('error-display').innerText = "Please enter a handle.";
             }
+        }
+
         function exitQueue ()
         {
             socket.emit('leave_queue');
@@ -146,8 +155,13 @@
             document.getElementById('login-area').classList.add('hidden');
             document.getElementById('game-area').classList.remove('hidden');
 
-            document.getElementById('match-title').innerText = "Match: You vs " + data.opponent;
+            document.getElementById('match-title').innerHTML =
+                `You <span class="rating-text">(${data.my_rating})</span> vs ` +
+                `${data.opponent_handle} <span class="rating-text">(${data.opponent_rating})</span>`;
+
             document.getElementById('prob-name').innerText = data.problem.name;
+            document.getElementById('prob-rating').innerText = data.problem.rating;
+
             document.getElementById('prob-link').href = `https://codeforces.com/contest/${data.problem.contestId}/problem/${data.problem.index}`;
         });
 
@@ -173,9 +187,9 @@
         });
 
         socket.on('error_msg', function (data)
-            {
-                document.getElementById('error-display').innerText = data.msg;
-            });
+        {
+            document.getElementById('error-display').innerText = data.msg;
+        });
     </script>
 </body>
 

@@ -30,3 +30,8 @@ i dont think we can do this randomly
 when player enters his handle then we emit 'on join' and add him to the queue or match 
 with other 
 
+
+
+first we do socketio 
+then we do redis 
+then we do rating based matching 

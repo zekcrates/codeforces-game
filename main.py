@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, session, redirect, url_for
 import uuid
-from cf import check_solution, user_exists
+from cf import check_solution, get_user_rating, user_exists
 from problems import get_problem
 from flask_socketio import SocketIO, send, emit, join_room
 
@@ -28,11 +28,13 @@ def handle_join(data):
     if not handle or not user_exists(handle):
         emit('error_msg', {'msg': 'Invalid CF handle'})
         return 
-    player_data = {'handle': handle, 'sid': request.sid}
+    
+    rating = get_user_rating(handle)
+    player_data = {'handle': handle, 'sid': request.sid, 'rating': rating}
     if waiting_queue:
         opponent = waiting_queue.pop(0)
         game_id = str(uuid.uuid4())
-        problem = get_problem()
+        problem = get_problem([rating, opponent['rating']])
 
         active_games[game_id] = {
             'player1': player_data,
@@ -46,13 +48,17 @@ def handle_join(data):
         join_room(game_id, sid=opponent['sid'])
         emit('match_found', {
             'game_id': game_id,
-            'opponent': opponent['handle'], 
+            'opponent_handle': opponent['handle'],
+            'opponent_rating': opponent['rating'],
+            'my_rating': rating,
             'problem': problem 
+        }, room=request.sid)
 
-        }, room=game_id)
         emit('match_found', {
             'game_id': game_id,
-            'opponent': handle,
+            'opponent_handle': handle,
+            'opponent_rating': rating,
+            'my_rating': opponent['rating'],
             'problem': problem
         }, room=opponent['sid'])
     

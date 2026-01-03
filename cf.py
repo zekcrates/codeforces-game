@@ -31,3 +31,30 @@ def check_solution(handle, problem_index, contest_id):
                 return True  
 
     return False
+
+
+def get_user_rating(handle):
+    
+    url = f"https://codeforces.com/api/user.rating?handle={handle}"
+    response = requests.get(url)
+    data = response.json()
+
+    if data["status"] != "OK":
+        return 800 #base rating 
+
+    total_contests = len(data['result'])
+
+    if total_contests ==0 :
+        return 800 
+    
+    last_contest = data['result'][total_contests-1]
+    rating = last_contest['newRating']
+#    print(last_contest)
+ #   print(rating)
+    return rating 
+
+
+
+
+
+

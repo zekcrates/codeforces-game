@@ -10,3 +10,24 @@ We use the ELO rating system same as the chess.
 
 We will use the CODEFORCES PUBLIC API!!!
 This should be fun :) 
+
+
+```python 
+git clone <repo>
+
+cd <repo>
+
+uv venv 
+
+# for windows 
+.venv\Scripts\activate 
+
+# for wsl2/linux 
+source .venv/bin/activate
+
+```
+
+
+```python 
+uv run main.py
+```
