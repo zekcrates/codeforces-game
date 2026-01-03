@@ -83,11 +83,11 @@ def handle_check(data):
     game_id = data.get('game_id')
     winner_handle = data.get('handle')
     game = active_games.get(game_id)
-
+    problem = game['problem']
     if not game or game['winner']:
         return 
 
-    winner_found = False
+    winner_found = check_solution(winner_handle,problem['index'],problem['contestId'] )
     if winner_found:
 
         p1 = game['player1']
