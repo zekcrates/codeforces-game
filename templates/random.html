@@ -1,60 +1,182 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-    <title>Random Match Game</title>
+    <meta charset="UTF-8">
+    <title>CF Race</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 40px auto;
+            max-width: 500px;
+            line-height: 1.6;
+            color: #333;
+            text-align: center;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .box {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+
+        input {
+            padding: 8px;
+            width: 70%;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 8px 16px;
+            cursor: pointer;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background-color: #e0e0e0;
+        }
+
+        .btn-check {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            width: 100%;
+            margin-top: 15px;
+        }
+
+        .btn-exit {
+            background-color: #fff;
+            color: #666;
+            font-size: 0.8em;
+            margin-top: 10px;
+        }
+
+        .problem-info {
+            text-align: left;
+            margin: 20px 0;
+            padding: 15px;
+            background: white;
+            border-left: 5px solid #333;
+        }
+
+        #status-msg {
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
 </head>
 
 <body>
-    <h1>Codeforces Race Game</h1>
+    <h1>Codeforces Race</h1>
 
-    {% if not status %}
-    <form method="POST" action="/random">
-        <label>Enter your Codeforces handle:</label><br>
-        <input type="text" name="handle" required>
-        <button type="submit">Join Game</button>
-    </form>
-    {% endif %}
+    <div class="box">
+        <div id="login-area">
+            <p>Enter your handle to find an opponent</p>
+            <input type="text" id="handle" placeholder="CF Handle">
+            <br>
+            <p id="error-display" style="color: red; font-size: 0.8em; min-height: 1em;"></p>
+        
+            <button onclick="join()">Join Game</button>
+        </div>
 
-    {% if status == "waiting" %}
-    <p>Waiting for opponent...</p>
-    <p><b>Your handle:</b> {{ cf_handle }}</p>
-    <form method="POST" action="/leave">
-        <button type="submit">Exit</button>
-    </form>
+        <div id="waiting-area" class="hidden">
+            <p><strong>Waiting for opponent...</strong></p>
+            <p style="font-size: 0.9em; color: #666;">The page will update automatically.</p>
+            <button class="btn-exit" onclick="exitQueue()">Cancel Search</button>
+        </div>
 
+        <div id="game-area" class="hidden">
+            <h3 id="match-title"></h3>
+
+            <div class="problem-info">
+                <p><strong>Problem:</strong> <span id="prob-name"></span></p>
+                <a id="prob-link" href="#" target="_blank">Open on Codeforces</a>
+            </div>
+
+            <button id="check-btn" class="btn-check" onclick="check()">Check Solution</button>
+            <p id="status-msg"></p>
+
+            <button id="reset-btn" class="hidden" onclick="location.reload()">Find New Match</button>
+        </div>
+    </div>
 
     <script>
-        setTimeout(() =>
+        var socket = io();
+        var currentGameId = null;
+        var myHandle = null;
+
+        function join ()
+            {
+                myHandle = document.getElementById('handle').value;
+                document.getElementById('error-display').innerText = "";
+
+                if (myHandle)
+                {
+                    socket.emit('join_game', { handle: myHandle });
+                } else
+                {
+                    document.getElementById('error-display').innerText = "Please enter a handle.";
+                }
+            }
+        function exitQueue ()
         {
-            window.location.href = "/random";
-        }, 1000);
+            socket.emit('leave_queue');
+            document.getElementById('waiting-area').classList.add('hidden');
+            document.getElementById('login-area').classList.remove('hidden');
+        }
+
+        socket.on('waiting', function ()
+        {
+            document.getElementById('login-area').classList.add('hidden');
+            document.getElementById('waiting-area').classList.remove('hidden');
+        });
+
+        socket.on('match_found', function (data)
+        {
+            currentGameId = data.game_id;
+            document.getElementById('waiting-area').classList.add('hidden');
+            document.getElementById('login-area').classList.add('hidden');
+            document.getElementById('game-area').classList.remove('hidden');
+
+            document.getElementById('match-title').innerText = "Match: You vs " + data.opponent;
+            document.getElementById('prob-name').innerText = data.problem.name;
+            document.getElementById('prob-link').href = `https://codeforces.com/contest/${data.problem.contestId}/problem/${data.problem.index}`;
+        });
+
+        function check ()
+        {
+            socket.emit('check_solution', {
+                game_id: currentGameId,
+                handle: myHandle
+            });
+        }
+
+        socket.on('game_over', function (data)
+        {
+            let winMsg = data.winner === myHandle ? "🎉 Success! You solved it first." : "😔 " + data.winner + " solved it first.";
+            document.getElementById('status-msg').innerText = winMsg;
+            document.getElementById('check-btn').classList.add('hidden');
+            document.getElementById('reset-btn').classList.remove('hidden');
+        });
+
+        socket.on('wrong_submission', function (data)
+        {
+            alert(data.msg);
+        });
+
+        socket.on('error_msg', function (data)
+            {
+                document.getElementById('error-display').innerText = data.msg;
+            });
     </script>
-    {% endif %}
-
-    {% if status == "matched" %}
-    <h3>Matched!</h3>
-    <p><b>Your handle:</b> {{ cf_handle }}</p>
-    <p><b>Opponent:</b> {{ opponent_handle }}</p>
-
-    <h4>{{ problem.name }} ({{ problem.rating }})</h4>
-
-    <a href="https://codeforces.com/contest/{{ problem.contestId }}/problem/{{ problem.index }}" target="_blank">
-        Open Problem
-    </a>
-
-    <form method="POST" action="/check_solution">
-        <input type="hidden" name="player_id" value="{{ player_id }}">
-        <input type="hidden" name="contest_id" value="{{ problem.contestId }}">
-        <input type="hidden" name="problem_index" value="{{ problem.index }}">
-        <button type="submit">Check Solution</button>
-    </form>
-
-    {% if result %}
-    <p><b>{{ result }}</b></p>
-    {% endif %}
-    {% endif %}
-
 </body>
 
 </html>

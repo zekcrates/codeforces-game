@@ -1,13 +1,20 @@
-from flask import Flask, render_template, request, session
+from flask import Flask, render_template, request, session, redirect, url_for
 import uuid
-from cf import user_exists
+from cf import check_solution, user_exists
 from problems import get_problem
+from flask_socketio import SocketIO, send, emit, join_room
+
 
 app = Flask(__name__)
-app.secret_key = "dev-secret-key"  
-
+app.secret_key = "dev-secret-key"
+socketio = SocketIO(app)
 waiting_queue = []
-active_games = {}  
+active_games = {}
+
+
+@socketio.on('message')
+def handle_message(data):
+    print("message received: ", data)
 
 
 @app.route('/')
@@ -15,79 +22,59 @@ def index():
     return render_template("random.html")
 
 
-@app.route('/random', methods=['GET', 'POST'])
-def random_join():
+@socketio.on('join_game')
+def handle_join(data):
+    handle = data.get("handle")
+    if not handle or not user_exists(handle):
+        emit('error_msg', {'msg': 'Invalid CF handle'})
+        return 
+    player_data = {'handle': handle, 'sid': request.sid}
+    if waiting_queue:
+        opponent = waiting_queue.pop(0)
+        game_id = str(uuid.uuid4())
+        problem = get_problem()
 
-    if request.method == 'POST':
-        cf_handle = request.form.get("handle")
-
-        if not cf_handle:
-            return "CF handle required", 400
-
-        if not user_exists(cf_handle):
-            return "CF handle not present", 400
-
-        player_id = str(uuid.uuid4())
-
-        session["cf_handle"] = cf_handle
-        session["player_id"] = player_id
-
-        player_data = {
-            "player_id": player_id,
-            "handle": cf_handle
+        active_games[game_id] = {
+            'player1': player_data,
+            'player2': opponent,
+            'problem': problem,
+            'winner': None
         }
 
-        if waiting_queue:
-            opponent = waiting_queue.pop(0)
-            problem = get_problem()
-            game_id = f"{player_id}_{opponent['player_id']}"
 
-            active_games[game_id] = {
-                "player1": player_data,
-                "player2": opponent,
-                "problem": problem,
-                "winner": None
-            }
+        join_room(game_id)
+        join_room(game_id, sid=opponent['sid'])
+        emit('match_found', {
+            'game_id': game_id,
+            'opponent': opponent['handle'], 
+            'problem': problem 
 
-            return render_template(
-                "random.html",
-                status="matched",
-                player_id=player_id,
-                cf_handle=cf_handle,
-                opponent_handle=opponent["handle"],
-                problem=problem
-            )
-
+        }, room=game_id)
+        emit('match_found', {
+            'game_id': game_id,
+            'opponent': handle,
+            'problem': problem
+        }, room=opponent['sid'])
+    
+    else:
         waiting_queue.append(player_data)
-        return render_template(
-            "random.html",
-            status="waiting",
-            player_id=player_id,
-            cf_handle=cf_handle
-        )
-
-    return render_template(
-        "random.html",
-        status="waiting",
-        player_id=session.get("player_id"),
-        cf_handle=session.get("cf_handle")
-    )
+        emit('waiting', {'msg': 'Searching for opponent...'})
 
 
-@app.route('/leave', methods=['POST'])
-def leave_game():
-    player_id = session.get("player_id")
+@socketio.on('check_solution')
+def handle_check(data):
+    game_id = data.get('game_id')
+    handle = data.get('handle')
+    game= active_games.get(game_id)
+    if not game or game['winner']:
+        return 
+    
+    emit('game_over', {'winner': handle}, room=game_id)
 
-    if player_id:
-        global waiting_queue
-        waiting_queue = [
-            p for p in waiting_queue if p["player_id"] != player_id
-        ]
-
-    session.clear()
-
-    return render_template("random.html")
-
+@socketio.on('leave_queue')
+def handle_leave():
+    global waiting_queue
+    waiting_queue = [p for p in waiting_queue if p['sid'] != request.sid]
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    socketio.run(app, debug=True)
