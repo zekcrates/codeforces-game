@@ -87,36 +87,43 @@ def handle_check(data):
     if not game or game['winner']:
         return 
 
-    p1 = game['player1']
-    p2 = game['player2']
+    winner_found = False
+    if winner_found:
 
-    if winner_handle == p1['handle']:
-        winner_data, loser_data = p1, p2
-    else:
-        winner_data, loser_data = p2, p1
+        p1 = game['player1']
+        p2 = game['player2']
 
-    new_winner_rating, new_loser_rating = calculate_ratings(
-        winner_data['rating'], 1, 
-        loser_data['rating'], 0
-    )
+        if winner_handle == p1['handle']:
+            winner_data, loser_data = p1, p2
+        else:
+            winner_data, loser_data = p2, p1
 
-    game['winner'] = winner_handle
+        new_winner_rating, new_loser_rating = calculate_ratings(
+            winner_data['rating'], 1, 
+            loser_data['rating'], 0
+        )
 
-    emit('game_over', {
-        'winner': winner_handle,
-        'new_ratings': {
-            winner_data['handle']: {
-                'old': winner_data['rating'],
-                'new': new_winner_rating,
-                'diff': new_winner_rating - winner_data['rating']
-            },
-            loser_data['handle']: {
-                'old': loser_data['rating'],
-                'new': new_loser_rating,
-                'diff': new_loser_rating - loser_data['rating']
+        game['winner'] = winner_handle
+
+        emit('game_over', {
+            'winner': winner_handle,
+            'new_ratings': {
+                winner_data['handle']: {
+                    'old': winner_data['rating'],
+                    'new': new_winner_rating,
+                    'diff': new_winner_rating - winner_data['rating']
+                },
+                loser_data['handle']: {
+                    'old': loser_data['rating'],
+                    'new': new_loser_rating,
+                    'diff': new_loser_rating - loser_data['rating']
+                }
             }
-        }
-    }, room=game_id)
+        }, room=game_id)
+    else:
+        emit('wrong_submission', {
+            'msg': 'Not solved yet! Ensure you have submitted on Codeforces and it passed all tests.'
+        }, room=request.sid)
 @socketio.on('leave_queue')
 def handle_leave():
     global waiting_queue

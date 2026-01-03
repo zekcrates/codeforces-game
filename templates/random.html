@@ -196,9 +196,17 @@
                 document.getElementById('reset-btn').classList.remove('hidden');
             });
         socket.on('wrong_submission', function (data)
-        {
-            alert(data.msg);
-        });
+            {
+                let statusEl = document.getElementById('status-msg');
+                statusEl.innerText = data.msg;
+                statusEl.style.color = "red";
+
+                setTimeout(() =>
+                {
+                    if (!currentGameId || document.getElementById('check-btn').classList.contains('hidden')) return;
+                    statusEl.innerText = "";
+                }, 6000);
+            });
 
         socket.on('error_msg', function (data)
         {
