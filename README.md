@@ -2,8 +2,8 @@
 
 The User will be able to play based on their rating just like chess. 
 
-Each player will have some base rating and playing and winning more matches against others will 
-increase in their rating. 
+Each player will have some base rating(from cf) and playing and winning more matches against others will 
+increase their rating. 
 
 We use the ELO rating system same as the chess. 
 
